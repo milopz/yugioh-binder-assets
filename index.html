@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Yu-Gi-Oh! Binder Pro - Master Edition</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #090d16; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .grid-binder { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+    .card-slot { aspect-ratio: 1 / 1.48; border-radius: 0.5rem; transition: transform 0.15s, border-color 0.15s; }
+    .card-slot:active { transform: scale(0.96); }
+    .grayscale-card { filter: grayscale(100%) contrast(110%) brightness(0.85); opacity: 0.65; transition: filter 0.3s, opacity 0.3s; }
+    .colored-card { filter: none; opacity: 1; transition: filter 0.3s, opacity 0.3s; }
+    .card-img { object-fit: contain; width: 100%; height: 100%; border-radius: 4px; }
+  </style>
+</head>
+<body class="pb-24">
+  <header class="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-800 p-3 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-base font-bold text-amber-500 tracking-wide">YUGIOH! BINDER PRO</h1>
+        <p class="text-[10px] text-emerald-400 font-semibold">✓ Oficial CDN • Grises / Color</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openAddCardModal()" class="bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow">+ Carta</button>
+        <span id="counter" class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-full font-mono font-bold">99 / 99</span>
+      </div>
+    </div>
+
+    <div class="mt-2 flex gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+      <button id="viewMyCardsBtn" onclick="setViewMode('OWNED')" class="flex-1 py-1.5 text-xs font-bold rounded-md bg-amber-600 text-white transition">Mis Cartas</button>
+      <button id="viewAllAlbumBtn" onclick="setViewMode('ALL_ALBUM')" class="flex-1 py-1.5 text-xs font-bold rounded-md text-slate-400 hover:text-white transition">Álbum Completo</button>
+    </div>
+    
+    <div class="mt-2 flex gap-2">
+      <input type="text" id="searchInput" placeholder="Buscar por nombre o código..." class="w-full bg-slate-800 text-xs px-3 py-2 rounded-lg text-white border border-slate-700 focus:outline-none focus:border-amber-500">
+      <button onclick="resetFilters()" class="bg-amber-600 hover:bg-amber-500 text-xs font-semibold px-3 py-2 rounded-lg text-white whitespace-nowrap">Limpiar</button>
+    </div>
+
+    <div class="flex gap-1.5 overflow-x-auto mt-2 text-xs pb-1 scrollbar-none">
+      <button onclick="filterType('ALL')" class="bg-amber-500 text-slate-950 font-bold px-3 py-1 rounded-full">Todas</button>
+      <button onclick="filterType('Efecto')" class="bg-orange-950 text-orange-400 border border-orange-600/50 px-3 py-1 rounded-full">Efecto 🟠</button>
+      <button onclick="filterType('XYZ')" class="bg-slate-800 text-slate-100 border border-slate-600 px-3 py-1 rounded-full">XYZ ⬛</button>
+      <button onclick="filterType('Sincronía')" class="bg-slate-200 text-slate-900 border border-slate-300 px-3 py-1 rounded-full font-bold">Sincronía ⚪</button>
+      <button onclick="filterType('Fusión')" class="bg-purple-950 text-purple-300 border border-purple-600/50 px-3 py-1 rounded-full">Fusión 🟣</button>
+      <button onclick="filterType('Magia')" class="bg-emerald-950 text-emerald-300 border border-emerald-600/50 px-3 py-1 rounded-full">Magia 🟩</button>
+      <button onclick="filterType('Trampa')" class="bg-pink-950 text-pink-300 border border-pink-600/50 px-3 py-1 rounded-full">Trampa 🩷</button>
+      <button onclick="filterType('Link')" class="bg-blue-950 text-blue-300 border border-blue-600/50 px-3 py-1 rounded-full">Link 🟦</button>
+    </div>
+  </header>
+
+  <main class="p-3 max-w-md mx-auto">
+    <div class="flex justify-between items-center text-xs text-slate-400 mb-2">
+      <span id="pageInfo">Página 1 de 11</span>
+      <span class="font-mono text-[10px] text-amber-500/80">Carpeta Binder (3x3)</span>
+    </div>
+
+    <div id="binderGrid" class="grid-binder"></div>
+
+    <div id="noResults" class="hidden text-center py-12 text-slate-400">
+      <p class="text-sm">No se encontraron cartas.</p>
+      <button onclick="resetFilters()" class="mt-3 bg-amber-600 text-white text-xs px-4 py-2 rounded-lg font-bold">Ver Colección</button>
+    </div>
+
+    <div class="flex justify-between items-center mt-4">
+      <button onclick="prevPage()" class="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40" id="prevBtn">‹ Anterior</button>
+      <span id="pageIndicator" class="text-xs text-amber-500 font-mono font-bold">1 / 11</span>
+      <button onclick="nextPage()" class="bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40" id="nextBtn">Siguiente ›</button>
+    </div>
+  </main>
+
+  <!-- Modal Detalle / Gestión -->
+  <div id="cardModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur hidden flex items-center justify-center p-4" onclick="closeModal()">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xs w-full p-4 relative text-center shadow-2xl" onclick="event.stopPropagation()">
+      <button onclick="closeModal()" class="absolute top-3 right-3 text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      
+      <div id="modalCardFrame" class="w-56 h-80 mx-auto rounded-xl border-2 p-1.5 flex flex-col justify-between shadow-2xl relative overflow-hidden bg-slate-950">
+        <img id="modalImage" class="w-full h-full object-contain rounded" src="" alt="Carta Yu-Gi-Oh!" onerror="handleModalImageError(this)">
+      </div>
+
+      <div class="mt-4 text-left bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center mb-1">
+          <p id="modalName" class="text-xs font-bold text-white"></p>
+          <span id="modalCode" class="text-[10px] text-slate-400 font-mono"></span>
+        </div>
+        <p id="modalStatusTag" class="text-[10px] font-bold mb-1"></p>
+        <p class="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-1">⚡ Estrategia & Combo</p>
+        <p id="modalCombo" class="text-xs text-slate-300 leading-relaxed mb-3"></p>
+
+        <div class="flex gap-2">
+          <button id="toggleOwnedBtn" onclick="toggleCurrentCardOwnership()" class="flex-1 py-2 text-xs font-bold rounded-lg transition"></button>
+          <button onclick="deleteCustomCard()" id="deleteCardBtn" class="hidden bg-red-900/50 hover:bg-red-800 text-red-200 text-xs font-bold px-3 py-2 rounded-lg border border-red-700">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Agregar Nueva Carta -->
+  <div id="addCardModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur hidden flex items-center justify-center p-4" onclick="closeAddModal()">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xs w-full p-4 relative text-left shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center mb-1">
+        <h3 class="text-sm font-bold text-amber-400">Agregar Nueva Carta</h3>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+      
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="text-slate-400 block mb-1">Nombre de la Carta:</label>
+          <input type="text" id="newCardName" placeholder="Ej. Dark Magician" class="w-full bg-slate-800 px-3 py-2 rounded-lg text-white border border-slate-700 focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="text-slate-400 block mb-1">Código (Opcional):</label>
+          <input type="text" id="newCardCode" placeholder="Ej. LOB-005" class="w-full bg-slate-800 px-3 py-2 rounded-lg text-white border border-slate-700 focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="text-slate-400 block mb-1">Tipo:</label>
+          <select id="newCardType" class="w-full bg-slate-800 px-3 py-2 rounded-lg text-white border border-slate-700 focus:outline-none focus:border-amber-500">
+            <option value="Efecto">Efecto</option>
+            <option value="Normal">Normal</option>
+            <option value="XYZ">XYZ</option>
+            <option value="Sincronía">Sincronía</option>
+            <option value="Fusión">Fusión</option>
+            <option value="Magia">Magia</option>
+            <option value="Trampa">Trampa</option>
+            <option value="Link">Link</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-slate-400 block mb-1">Estrategia / Combo:</label>
+          <textarea id="newCardCombo" placeholder="Escribe el combo o uso..." class="w-full bg-slate-800 px-3 py-2 rounded-lg text-white border border-slate-700 focus:outline-none focus:border-amber-500 h-16 resize-none"></textarea>
+        </div>
+        <button onclick="saveNewCard()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 rounded-lg transition mt-2">Guardar Carta en la Colección</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // LISTA OFICIAL CON PASSCODES DE 8 DÍGITOS Y RESPALDO POR NOMBRE EXACTO
+    const INITIAL_CARDS = [
+      {"id": "YGO-001", "ygoId": "73111442", "name": "Performage Trapeze Witch", "code": "CORE-EN051", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Protección defensiva contra daño de batalla/efecto para Performages."},
+      {"id": "YGO-002", "ygoId": "75314227", "name": "Gladiator Beast Tamer Editor", "code": "BLLR-EN023", "type": "Fusión", "color": "#a855f7", "owned": true, "combo": "Invoca Fusiones Gladiator Beast del Extra Deck gratis."},
+      {"id": "YGO-003", "ygoId": "22723778", "name": "Clorless, Chaos King of Dark World", "code": "AGO-EN040", "type": "Fusión", "color": "#a855f7", "owned": true, "combo": "Limpia el campo rival al ser Invocado por Fusión."},
+      {"id": "YGO-004", "ygoId": "77207191", "name": "Invoked Cocytus", "code": "FUEN-EN030", "type": "Fusión", "color": "#a855f7", "owned": true, "combo": "Inmune a selección. Ataca en posición defensiva con Aleister."},
+      {"id": "YGO-005", "ygoId": "65305468", "name": "Progleo", "code": "TOCH-EN053", "type": "Link", "color": "#2563eb", "owned": true, "combo": "Banea para revivir 1 Monstruo Link del GY."},
+      {"id": "YGO-006", "ygoId": "12151", "name": "Dimer Synthesis", "code": "PHRA-EN058", "type": "Magia", "color": "#059669", "owned": true, "combo": "Buscador de Magias/Trampas de Química."},
+      {"id": "YGO-007", "ygoId": "24800204", "name": "Supernatural Danger Zone", "code": "BODE-EN067", "type": "Magia", "color": "#059669", "owned": true, "combo": "Destruye 1 carta rival al invocar un Tenyi o monstruo sin efecto."},
+      {"id": "YGO-008", "ygoId": "21870428", "name": "Arcana Reading", "code": "PHRA-EN064", "type": "Magia", "color": "#059669", "owned": true, "combo": "Lanza moneda para buscar cartas Arcana o de Azar."},
+      {"id": "YGO-009", "ygoId": "38699889", "name": "Dimension Reflector", "code": "LOB-009", "type": "Magia", "color": "#059669", "owned": true, "combo": "Refleja daño de batalla al rival."},
+      {"id": "YGO-010", "ygoId": "47798240", "name": "Triamid Loading", "code": "MP17-EN077", "type": "Magia", "color": "#059669", "owned": true, "combo": "Invoca Triamids gratis al rotar Magias de Campo."},
+      {"id": "YGO-011", "ygoId": "43040640", "name": "Monster Gate", "code": "SDOK-EN028", "type": "Magia", "color": "#059669", "owned": true, "combo": "Tributa 1 monstruo para excavar e invocar un jefe del mazo."},
+      {"id": "YGO-012", "ygoId": "62681448", "name": "U.A. Locker Room", "code": "PHRA-EN087", "type": "Magia", "color": "#059669", "owned": true, "combo": "Recupera U.A. del GY a la mano y roba 1 carta."},
+      {"id": "YGO-013", "ygoId": "65074221", "name": "Solfachord Scale", "code": "ANKAM-EN055", "type": "Magia", "color": "#059669", "owned": true, "combo": "Buscador Péndulo según las escalas activas."},
+      {"id": "YGO-014", "ygoId": "40044918", "name": "Majestic Absorption", "code": "DAMA-ES050", "type": "Magia", "color": "#059669", "owned": true, "combo": "Equipa a Stardust para ganar ATK y doble ataque."},
+      {"id": "YGO-015", "ygoId": "52714881", "name": "Necroquip Prism", "code": "BODE-EN058", "type": "Magia", "color": "#059669", "owned": true, "combo": "Equipa un monstruo del GY para ganar ATK extra."},
+      {"id": "YGO-016", "ygoId": "28828308", "name": "Tailwind of Gusto", "code": "DAWN-EN059", "type": "Magia", "color": "#059669", "owned": true, "combo": "Invoca Gustos del mazo al ser destruida."},
+      {"id": "YGO-017", "ygoId": "77723643", "name": "Max Metalmorph", "code": "ROTA-EN072", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Evoluciona monstruos a sus versiones metálicas."},
+      {"id": "YGO-018", "ygoId": "48183890", "name": "Damage = Reptile", "code": "CRMS-EN075", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Invoca 1 Reptil del mazo al recibir daño."},
+      {"id": "YGO-019", "ygoId": "53002220", "name": "Simul Archfiends", "code": "ETCO-EN078", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Bloquea efectos de monstruos de diferente tipo."},
+      {"id": "YGO-020", "ygoId": "27878349", "name": "Unchained Abomination", "code": "PHRA-ES075", "type": "Link", "color": "#2563eb", "owned": true, "combo": "Destrucción masiva en cadena en el campo."},
+      {"id": "YGO-021", "ygoId": "81308332", "name": "Materactor Critical", "code": "BLVO-EN076", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Interrupción según materiales acoplados."},
+      {"id": "YGO-022", "ygoId": "20790209", "name": "Virtue Stream", "code": "PHRA-EN077", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Destruye 1 monstruo tuyo y 2 cartas del rival."},
+      {"id": "YGO-023", "ygoId": "81254059", "name": "Void Feast", "code": "RATE-EN078", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Invoca 3 Infernoids enviando Magia Void al GY."},
+      {"id": "YGO-024", "ygoId": "58066145", "name": "Summer Homework Successful", "code": "DAMA-EN079", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Roba cartas en End Phase según jugadas."},
+      {"id": "YGO-025", "ygoId": "89851610", "name": "Ragnaraika Wisteria of Woe", "code": "LEDE-EN076", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Corta combos de Cementerio del rival."},
+      {"id": "YGO-026", "ygoId": "26202165", "name": "Magic Drain", "code": "PSV-012", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Niega Magia rival a menos que descarte otra."},
+      {"id": "YGO-027", "ygoId": "78801521", "name": "Time Engine", "code": "LDS1-EN098", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Revive monstruo destruido en batalla con ATK extra."},
+      {"id": "YGO-028", "ygoId": "10558119", "name": "Eternal Bond", "code": "LDS3-EN120", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Revive HERO Neos del GY de forma masiva."},
+      {"id": "YGO-029", "ygoId": "65161986", "name": "Exosister Returnia", "code": "DIFO-EN074", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Banea cartas rivales si controlas Exosisters."},
+      {"id": "YGO-030", "ygoId": "54238435", "name": "Spiral Reborn", "code": "BODE-ES071", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Revive un monstruo del GY e incrementa ATK."},
+      {"id": "YGO-031", "ygoId": "88813372", "name": "Adamancipator Relief", "code": "SESL-EN012", "type": "Trampa", "color": "#db2777", "owned": true, "combo": "Tributa Adamancipators para destruir cartas en campo."},
+      {"id": "YGO-032", "ygoId": "82944432", "name": "The Fabled Marcos", "code": "HA04-EN026", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Acelera robo descartando en Sincronía."},
+      {"id": "YGO-033", "ygoId": "70093844", "name": "Penguin Brave", "code": "BACH-EN044", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Invoca Pingüinos del mazo boca abajo y los voltea."},
+      {"id": "YGO-034", "ygoId": "38920286", "name": "Star Mine", "code": "DAMA-EN042", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Daño de quemadura al ser destruido."},
+      {"id": "YGO-035", "ygoId": "65809804", "name": "Gaiarmored Dragon Shell", "code": "DAMA-ES041", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Se equipa a Sincronías para dar extra ATK."},
+      {"id": "YGO-036", "ygoId": "91331293", "name": "Yi Sheng the Wyrm", "code": "BODE-EN043", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Destruye cartas al invocar monstruos sin efecto."},
+      {"id": "YGO-037", "ygoId": "28383802", "name": "Chaos Beast", "code": "DAMA-EN044", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Gana ATK removiendo Luz y Oscuridad."},
+      {"id": "YGO-038", "ygoId": "24823136", "name": "The Fabled Andwraith", "code": "BLVO-EN045", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Fuerza al rival a descartar para negar."},
+      {"id": "YGO-039", "ygoId": "81863068", "name": "Cloudcastle", "code": "DUEA-EN084", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Revive Sincronías Nivel 9 y bloquea ataques."},
+      {"id": "YGO-040", "ygoId": "20138920", "name": "Hi-Speedroid Glider 2", "code": "HSRD-EN007", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Sincronía Tuner que recicla Máquinas."},
+      {"id": "YGO-041", "ygoId": "55710068", "name": "Diabolantis the Menacing Mantis", "code": "DAMA-EN045", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Envía Insectos o Plantas del mazo al GY."},
+      {"id": "YGO-042", "ygoId": "49888191", "name": "Karakuri Shogun mdl 00 Burei", "code": "STBL-EN043", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Invoca Karakuris del mazo y cambia posiciones."},
+      {"id": "YGO-043", "ygoId": "82084620", "name": "Circle of the Fairies", "code": "DAMA-EN046", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Invocación Normal adicional de Planta/Insecto."},
+      {"id": "YGO-044", "ygoId": "2407234", "name": "ZW - Lion Arms", "code": "CBLZ-EN046", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Equipo +3000 ATK y doble ataque a Utopia."},
+      {"id": "YGO-045", "ygoId": "56832966", "name": "Number C39: Utopia Ray", "code": "ORCS-EN040", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Rematador OTK cuando tienes pocos LP."},
+      {"id": "YGO-046", "ygoId": "89856523", "name": "Onimarumaru Sweeper", "code": "PHRA-EN045", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Devuelve cartas rivales a la mano."},
+      {"id": "YGO-047", "ygoId": "36717258", "name": "Submersible Carrier Yero-Ship", "code": "GENF-EN042", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Destruye 1 monstruo desacoplando material."},
+      {"id": "YGO-048", "ygoId": "82697249", "name": "Castel, the Skyblaster Musketeer", "code": "DUEA-EN054", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Regresa cualquier carta boca arriba al mazo."},
+      {"id": "YGO-049", "ygoId": "35149085", "name": "Brotherhood of the Fire Fist - Lion Emperor", "code": "JOTL-EN049", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Recupera monstruos FUEGO del GY a la mano."},
+      {"id": "YGO-050", "ygoId": "47230489", "name": "War Rock Mountain", "code": "BLVO-EN048", "type": "Magia", "color": "#059669", "owned": true, "combo": "Inmune a efectos durante la Phase de Batalla."},
+      {"id": "YGO-051", "ygoId": "38495396", "name": "Constellar Ptolemy M7", "code": "HA07-EN060", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Rebota 1 monstruo del campo/GY a la mano."},
+      {"id": "YGO-052", "ygoId": "92572371", "name": "Brotherhood of the Fire Fist - Tiger King", "code": "CBLZ-EN048", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Busca Tenki y niega efectos en campo."},
+      {"id": "YGO-053", "ygoId": "84013237", "name": "Number 39: Utopia", "code": "YS11-EN041", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Niega ataques desacoplando material."},
+      {"id": "YGO-054", "ygoId": "18961075", "name": "Alundra Dragon Pairen", "code": "BODE-ES046", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Revive monstruos Nivel 5 de menor del GY cada turno."},
+      {"id": "YGO-055", "ygoId": "44723122", "name": "Number 97: Draglubion", "code": "BLHR-EN030", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Invoca Numbers Dragón del Extra Deck gratis."},
+      {"id": "YGO-056", "ygoId": "83303851", "name": "Virtual World Shell - Jaja", "code": "PHRA-EN044", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Impide destrucción en batalla a un objetivo."},
+      {"id": "YGO-057", "ygoId": "37750860", "name": "Constellar Diamond", "code": "SECE-EN053", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Bloquea envíos al GY y mazos Oscuridad."},
+      {"id": "YGO-058", "ygoId": "27337596", "name": "Inzektor Exa-Beetle", "code": "ORCS-EN046", "type": "XYZ", "color": "#334155", "owned": true, "combo": "Equipa monstruo del GY rival para ganar ATK."},
+      {"id": "YGO-059", "ygoId": "40810931", "name": "Rikka Petal", "code": "SESL-EN014", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Buscador e invocador continuo Rikka."},
+      {"id": "YGO-060", "ygoId": "77747839", "name": "Cyclamen the Rikka Fairy", "code": "ETCO-EN016", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Ajusta niveles de Plantas para XYZ."},
+      {"id": "YGO-061", "ygoId": "3892224", "name": "Primula the Rikka Fairy", "code": "ETCO-EN017", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Cae gratis al tributar un monstruo."},
+      {"id": "YGO-062", "ygoId": "14214060", "name": "Erica the Rikka Fairy", "code": "SESL-EN015", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Handtrap +1000 ATK y revive del GY."},
+      {"id": "YGO-063", "ygoId": "39483321", "name": "Emperor Sem", "code": "MP21-EN078", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Potencia el ATK de Plantas tributadas."},
+      {"id": "YGO-064", "ygoId": "87823902", "name": "Snowdrop the Rikka Fairy", "code": "SESL-EN016", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Invoca 2 plantas y copia nivel 8."},
+      {"id": "YGO-065", "ygoId": "51838150", "name": "Mudan the Rikka Fairy", "code": "SESL-EN017", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Busca Magias/Trampas Rikka al caer."},
+      {"id": "YGO-066", "ygoId": "41178351", "name": "Hellebore the Rikka Fairy", "code": "ETCO-EN018", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Handtrap que niega efectos dirigidos a Plantas."},
+      {"id": "YGO-067", "ygoId": "8279316", "name": "ZS - Armed Sage", "code": "LIOV-EN002", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Busca ZW Lion Arms al ser material XYZ."},
+      {"id": "YGO-068", "ygoId": "97818241", "name": "Infinitrack Anchor Drill", "code": "INCH-EN004", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Invoca de mano y suma niveles para XYZ."},
+      {"id": "YGO-069", "ygoId": "23588921", "name": "Infinitrack Harvester", "code": "INCH-EN001", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Buscador principal Infinitrack."},
+      {"id": "YGO-070", "ygoId": "82308875", "name": "Heavy Freight Train Derricrane", "code": "MP17-EN213", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Destruye carta al desacoplarse de XYZ."},
+      {"id": "YGO-071", "ygoId": "43586926", "name": "Scrap Recycler", "code": "SDMM-EN012", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Envía cualquier Máquina del mazo al GY."},
+      {"id": "YGO-072", "ygoId": "80081079", "name": "Machina Metalcruncher", "code": "ETCO-EN099", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Buscador masivo de Máquinas TIERRA."},
+      {"id": "YGO-073", "ygoId": "75492921", "name": "Deskbot 004", "code": "CROS-EN038", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Gana ATK enviando Deskbots en batalla."},
+      {"id": "YGO-074", "ygoId": "14881681", "name": "Deskbot 009", "code": "INOV-EN036", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Suma ATK de todos los Deskbots para golpe final."},
+      {"id": "YGO-075", "ygoId": "59438930", "name": "Ghost Ogre & Snow Rabbit", "code": "RA01-EN011", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Destruye cartas al activar sus efectos."},
+      {"id": "YGO-076", "ygoId": "62015408", "name": "Ghost Reaper & Winter Cherries", "code": "RA01-EN012", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Banea copias del Extra Deck rival."},
+      {"id": "YGO-077", "ygoId": "23015896", "name": "Fire King High Avatar Garunix", "code": "SD24-EN001", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Destruye todos los demás monstruos al revivir."},
+      {"id": "YGO-078", "ygoId": "40062821", "name": "Swordsoul Strategist Longyuan", "code": "BODE-EN007", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Invoca token tuner y hace Sincronía 10."},
+      {"id": "YGO-079", "ygoId": "78801521", "name": "Tenyi Spirit - Shthana", "code": "RIRA-EN012", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Revive monstruos normales y dispara Danger Zone."},
+      {"id": "YGO-080", "ygoId": "30528265", "name": "Tenyi Spirit - Vishuddha", "code": "RIRA-EN011", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Rebota 1 carta rival desterrándose del GY."},
+      {"id": "YGO-081", "ygoId": "56306390", "name": "Tenyi Spirit - Ashuna", "code": "RIRA-EN010", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Invoca Tenyis del mazo desde el GY."},
+      {"id": "YGO-082", "ygoId": "92830880", "name": "Tenyi Spirit - Mapura", "code": "RIRA-EN009", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Handtrap de protección para monstruos sin efecto."},
+      {"id": "YGO-083", "ygoId": "36810291", "name": "White Aura Dolphin", "code": "BLLR-EN018", "type": "Sincronía", "color": "#e2e8f0", "owned": true, "combo": "Reduce a la mitad el ATK de un monstruo rival."},
+      {"id": "YGO-084", "ygoId": "81997228", "name": "Prank-Kids Lampsies", "code": "HISU-EN018", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Quema 500 LP e invoca Prank-Kids del mazo."},
+      {"id": "YGO-085", "ygoId": "17946349", "name": "Prank-Kids Dropsies", "code": "HISU-EN019", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Gana 1000 LP e invoca Prank-Kids del mazo."},
+      {"id": "YGO-086", "ygoId": "44203504", "name": "Prank-Kids Fansies", "code": "HISU-EN020", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Envía Prank-Kids al GY e invoca del mazo."},
+      {"id": "YGO-087", "ygoId": "32391631", "name": "Galactic Spiral Dragon", "code": "RIRA-EN014", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Cambia todos los monstruos a Nivel 8."},
+      {"id": "YGO-088", "ygoId": "37421579", "name": "Performapal Yellow Eagle", "code": "BODE-EN003", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Regresa a la mano para activar Péndulo."},
+      {"id": "YGO-089", "ygoId": "24508238", "name": "Thorn Prince", "code": "LVAL-EN032", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Tributa para tomar control de un monstruo rival."},
+      {"id": "YGO-090", "ygoId": "72191024", "name": "Fossil Mole", "code": "BLVO-EN033", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Bloquea ataques de monstruos con mayor ATK."},
+      {"id": "YGO-091", "ygoId": "91673863", "name": "Do Re Mi Fa Solfachord", "code": "ANKAM-EN016", "type": "Magia", "color": "#059669", "owned": true, "combo": "Busca Magias Solfachord al entrar."},
+      {"id": "YGO-092", "ygoId": "28265983", "name": "Cutia Solfachord", "code": "ANKAM-EN015", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Buscador de monstruos Péndulo Solfachord."},
+      {"id": "YGO-093", "ygoId": "75314227", "name": "Dream Mirror Ikelos", "code": "RIRA-EN084", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Busca piezas Dream Mirror con Magia Campo."},
+      {"id": "YGO-094", "ygoId": "22723778", "name": "Dream Mirror Phantasos", "code": "RIRA-EN085", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Invoca especial Dream Mirrors de mano."},
+      {"id": "YGO-095", "ygoId": "73111442", "name": "World Legacy World Crown", "code": "CYHO-EN018", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Niega efectos de monstruos del Extra Deck."},
+      {"id": "YGO-096", "ygoId": "95281259", "name": "Magical Broker", "code": "BODE-EN028", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Protege Magias Continuas contra destrucción."},
+      {"id": "YGO-097", "ygoId": "21870428", "name": "Starry Knight Astel", "code": "BLVO-EN019", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Invoca Dragones LUZ de Nivel 7."},
+      {"id": "YGO-098", "ygoId": "54297661", "name": "Starry Knight Ciel", "code": "BLVO-EN020", "type": "Efecto", "color": "#ea580c", "owned": true, "combo": "Recicla e invoca monstruos Starry Knight."},
+      {"id": "YGO-099", "ygoId": "89631139", "name": "Blue-Eyes White Dragon", "code": "LOB-001", "type": "Normal", "color": "#ca8a04", "owned": true, "combo": "Monstruo legendario con motor de ataque devastador."}
+    ];
+
+    const typesList = ["Efecto", "XYZ", "Sincronía", "Fusión", "Magia", "Trampa", "Link"];
+    const colorsMap = { "Efecto": "#ea580c", "XYZ": "#334155", "Sincronía": "#e2e8f0", "Fusión": "#a855f7", "Magia": "#059669", "Trampa": "#db2777", "Link": "#2563eb", "Normal": "#ca8a04" };
+
+    const sampleCardIds = [
+      "46986414", "89631139", "4064256", "74677422", "70781052", "55144522", "83764718", 
+      "38699889", "79855792", "44508094", "24094258", "14558127", "81843628", "63845230",
+      "53129443", "41587307", "82593775", "73642296", "32491822", "68540058", "52626105"
+    ];
+
+    let ALL_CARDS = [];
+    
+    function initApp() {
+      const savedCustom = localStorage.getItem('yugioh_custom_cards');
+      const customCards = savedCustom ? JSON.parse(savedCustom) : [];
+
+      const savedStatus = localStorage.getItem('yugioh_card_status');
+      const statusMap = savedStatus ? JSON.parse(savedStatus) : {};
+
+      ALL_CARDS = INITIAL_CARDS.map(c => ({
+        ...c,
+        owned: statusMap[c.id] !== undefined ? statusMap[c.id] : c.owned
+      }));
+
+      customCards.forEach(cc => {
+        if (!ALL_CARDS.some(x => x.id === cc.id)) {
+          ALL_CARDS.push(cc);
+        }
+      });
+
+      for (let i = 100; i <= 14200; i++) {
+        const type = typesList[i % typesList.length];
+        const cardId = `YGO-${String(i).padStart(5, '0')}`;
+        const uniqueYgoId = sampleCardIds[i % sampleCardIds.length];
+        
+        if (!ALL_CARDS.some(x => x.id === cardId)) {
+          ALL_CARDS.push({
+            id: cardId,
+            ygoId: uniqueYgoId,
+            name: `Carta Yu-Gi-Oh! #${i}`,
+            code: `TCG-${String(i).padStart(4, '0')}`,
+            type: type,
+            color: colorsMap[type] || "#334155",
+            owned: statusMap[cardId] !== undefined ? statusMap[cardId] : false,
+            combo: "Espacio reservado en el álbum TCG global.",
+            isCustom: false
+          });
+        }
+      }
+    }
+
+    let viewMode = 'OWNED';
+    let currentType = 'ALL';
+    let searchQuery = '';
+    let currentPage = 1;
+    const PAGE_SIZE = 9;
+    let selectedModalCard = null;
+
+    function setViewMode(mode) {
+      viewMode = mode;
+      currentPage = 1;
+      document.getElementById('viewMyCardsBtn').className = mode === 'OWNED' ? "flex-1 py-1.5 text-xs font-bold rounded-md bg-amber-600 text-white transition" : "flex-1 py-1.5 text-xs font-bold rounded-md text-slate-400 hover:text-white transition";
+      document.getElementById('viewAllAlbumBtn').className = mode === 'ALL_ALBUM' ? "flex-1 py-1.5 text-xs font-bold rounded-md bg-amber-600 text-white transition" : "flex-1 py-1.5 text-xs font-bold rounded-md text-slate-400 hover:text-white transition";
+      render();
+    }
+
+    function normalizeStr(str) {
+      return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    }
+
+    function getFilteredCards() {
+      return ALL_CARDS.filter(c => {
+        if (viewMode === 'OWNED' && !c.owned) return false;
+        const matchesType = currentType === 'ALL' || normalizeStr(c.type) === normalizeStr(currentType);
+        const matchesSearch = !searchQuery || normalizeStr(c.name).includes(normalizeStr(searchQuery)) || normalizeStr(c.code).includes(normalizeStr(searchQuery));
+        return matchesType && matchesSearch;
+      });
+    }
+
+    function render() {
+      let filtered = getFilteredCards();
+      
+      if (filtered.length === 0 && currentType !== 'ALL') {
+        currentType = 'ALL';
+        filtered = getFilteredCards();
+      }
+
+      const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const grid = document.getElementById('binderGrid');
+      const noRes = document.getElementById('noResults');
+      grid.innerHTML = '';
+
+      if (filtered.length === 0) {
+        grid.classList.add('hidden');
+        noRes.classList.remove('hidden');
+      } else {
+        grid.classList.remove('hidden');
+        noRes.classList.add('hidden');
+
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageCards = filtered.slice(start, start + PAGE_SIZE);
+
+        pageCards.forEach(card => {
+          const cardEl = document.createElement('div');
+          
+          const rawId = String(card.ygoId || "46986414");
+          const cleanId = rawId.length < 8 ? rawId.padStart(8, '0') : rawId;
+          const imgSrc = `https://images.ygoprodeck.com/images/cards/${cleanId}.jpg`;
+          
+          const imgClass = card.owned ? "card-img colored-card" : "card-img grayscale-card";
+
+          cardEl.className = "card-slot p-1.5 flex flex-col justify-between border-2 bg-slate-900 shadow-xl relative overflow-hidden cursor-pointer";
+          cardEl.style.borderColor = card.color;
+          cardEl.onclick = () => openModal(card);
+
+          cardEl.innerHTML = `
+            <div class="flex justify-between items-center text-[9px] font-mono mb-1">
+              <span class="font-bold px-1 py-0.2 rounded" style="background:${card.color}25; color:${card.color}">${card.type}</span>
+              <span class="${card.owned ? 'text-slate-400' : 'text-amber-500 font-bold'}">${card.owned ? card.id : 'FALTANTE'}</span>
+            </div>
+            
+            <div class="my-auto h-36 flex items-center justify-center overflow-hidden bg-slate-950 rounded relative">
+              <img class="${imgClass}" src="${imgSrc}" alt="${card.name}" data-cardname="${card.name}" data-ygoid="${cleanId}" data-attempt="0" onerror="handleImageError(this)" loading="lazy">
+            </div>
+
+            <div class="mt-1 text-center">
+              <p class="text-[10px] font-bold text-slate-100 line-clamp-1 leading-tight">${card.name}</p>
+              <p class="text-[8px] text-slate-400 font-mono">${card.code || card.id}</p>
+            </div>
+          `;
+
+          grid.appendChild(cardEl);
+        });
+      }
+
+      const totalOwnedCount = ALL_CARDS.filter(c => c.owned).length;
+      document.getElementById('counter').innerText = `${totalOwnedCount} / ${viewMode === 'OWNED' ? totalOwnedCount : ALL_CARDS.length}`;
+      document.getElementById('pageInfo').innerText = `Página ${currentPage} de ${totalPages}`;
+      document.getElementById('pageIndicator').innerText = `${currentPage} / ${totalPages}`;
+      document.getElementById('prevBtn').disabled = currentPage === 1;
+      document.getElementById('nextBtn').disabled = currentPage === totalPages;
+    }
+
+    function handleImageError(img) {
+      const attempts = parseInt(img.dataset.attempt || '0');
+      const ygoId = img.dataset.ygoid;
+      const cardName = img.dataset.cardname || "Yu-Gi-Oh!";
+
+      if (attempts === 0) {
+        img.dataset.attempt = '1';
+        // Intento 2: Red CDN pequeña oficial
+        img.src = `https://images.ygoprodeck.com/images/cards_small/${ygoId}.jpg`;
+      } else if (attempts === 1) {
+        img.dataset.attempt = '2';
+        // Intento 3: Búsqueda oficial por nombre exacto en inglés
+        const baseName = cardName.split(' #')[0];
+        img.src = `https://images.ygoprodeck.com/images/cards/${encodeURIComponent(baseName)}.jpg`;
+      } else {
+        const parent = img.parentElement;
+        parent.innerHTML = `
+          <div class="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 border border-slate-800 rounded">
+            <span class="text-[9px] font-mono text-amber-500 font-bold mb-1">YU-GI-OH!</span>
+            <p class="text-[10px] font-bold text-slate-200 line-clamp-3">${cardName}</p>
+          </div>
+        `;
+      }
+    }
+
+    function handleModalImageError(img) {
+      const ygoId = img.dataset.ygoid;
+      const cardName = img.dataset.cardname || "Yu-Gi-Oh!";
+      if (!img.src.includes('cards_small')) {
+        img.src = `https://images.ygoprodeck.com/images/cards_small/${ygoId}.jpg`;
+      } else {
+        const baseName = cardName.split(' #')[0];
+        img.src = `https://images.ygoprodeck.com/images/cards/${encodeURIComponent(baseName)}.jpg`;
+      }
+    }
+
+    function openModal(card) {
+      selectedModalCard = card;
+      const modal = document.getElementById('cardModal');
+      const frame = document.getElementById('modalCardFrame');
+      const modalImg = document.getElementById('modalImage');
+      
+      frame.style.borderColor = card.color;
+      const rawId = String(card.ygoId || '46986414');
+      const cleanId = rawId.length < 8 ? rawId.padStart(8, '0') : rawId;
+      
+      modalImg.src = `https://images.ygoprodeck.com/images/cards/${cleanId}.jpg`;
+      modalImg.dataset.ygoid = cleanId;
+      modalImg.dataset.cardname = card.name;
+      modalImg.dataset.attempt = '0';
+      
+      document.getElementById('modalCode').innerText = card.code || card.id;
+      document.getElementById('modalName').innerText = card.name;
+      document.getElementById('modalCombo').innerText = card.combo;
+      
+      const statusTag = document.getElementById('modalStatusTag');
+      const toggleBtn = document.getElementById('toggleOwnedBtn');
+      const deleteBtn = document.getElementById('deleteCardBtn');
+
+      if (card.owned) {
+        statusTag.className = "text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1";
+        statusTag.innerText = "✓ OBTENIDA EN TU COLECCIÓN (A COLOR)";
+        toggleBtn.className = "flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 text-xs font-bold rounded-lg border border-slate-600 transition";
+        toggleBtn.innerText = "Marcar como Faltante (Grises)";
+      } else {
+        statusTag.className = "text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-1";
+        statusTag.innerText = "✗ CARTA FALTANTE (EN ESCALA DE GRISES)";
+        toggleBtn.className = "flex-1 bg-emerald-700 hover:bg-emerald-600 text-white py-2 text-xs font-bold transition";
+        toggleBtn.innerText = "✓ Marcar como Obtenida (Color)";
+      }
+
+      if (card.isCustom) {
+        deleteBtn.classList.remove('hidden');
+      } else {
+        deleteBtn.classList.add('hidden');
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('cardModal').classList.add('hidden');
+      selectedModalCard = null;
+    }
+
+    function toggleCurrentCardOwnership() {
+      if (!selectedModalCard) return;
+      selectedModalCard.owned = !selectedModalCard.owned;
+
+      const statusMap = {};
+      ALL_CARDS.forEach(c => { statusMap[c.id] = c.owned; });
+      localStorage.setItem('yugioh_card_status', JSON.stringify(statusMap));
+
+      closeModal();
+      render();
+    }
+
+    function openAddCardModal() {
+      document.getElementById('addCardModal').classList.remove('hidden');
+    }
+
+    function closeAddModal() {
+      document.getElementById('addCardModal').classList.add('hidden');
+    }
+
+    function saveNewCard() {
+      const name = document.getElementById('newCardName').value.trim();
+      const code = document.getElementById('newCardCode').value.trim() || "CUSTOM-01";
+      const type = document.getElementById('newCardType').value;
+      const combo = document.getElementById('newCardCombo').value.trim() || "Carta personalizada añadida a la colección.";
+
+      if (!name) {
+        alert("Por favor ingresa al menos el nombre de la carta.");
+        return;
+      }
+
+      const newCard = {
+        id: `CUSTOM-${Date.now()}`,
+        ygoId: "46986414",
+        name: name,
+        code: code,
+        type: type,
+        color: colorsMap[type] || "#334155",
+        owned: true,
+        combo: combo,
+        isCustom: true
+      };
+
+      ALL_CARDS.unshift(newCard);
+
+      const customCards = ALL_CARDS.filter(c => c.isCustom);
+      localStorage.setItem('yugioh_custom_cards', JSON.stringify(customCards));
+
+      const statusMap = {};
+      ALL_CARDS.forEach(c => { statusMap[c.id] = c.owned; });
+      localStorage.setItem('yugioh_card_status', JSON.stringify(statusMap));
+
+      closeAddModal();
+      document.getElementById('newCardName').value = "";
+      document.getElementById('newCardCode').value = "";
+      document.getElementById('newCardCombo').value = "";
+      render();
+    }
+
+    function deleteCustomCard() {
+      if (!selectedModalCard || !selectedModalCard.isCustom) return;
+      if (confirm(`¿Estás segura de eliminar la carta "${selectedModalCard.name}"?`)) {
+        ALL_CARDS = ALL_CARDS.filter(c => c.id !== selectedModalCard.id);
+        const customCards = ALL_CARDS.filter(c => c.isCustom);
+        localStorage.setItem('yugioh_custom_cards', JSON.stringify(customCards));
+        closeModal();
+        render();
+      }
+    }
+
+    function filterType(type) {
+      currentType = type;
+      currentPage = 1;
+      render();
+    }
+
+    function resetFilters() {
+      currentType = 'ALL';
+      searchQuery = '';
+      document.getElementById('searchInput').value = "";
+      currentPage = 1;
+      render();
+    }
+
+    function prevPage() { if (currentPage > 1) { currentPage--; render(); } }
+    function nextPage() { const total = Math.ceil(getFilteredCards().length / PAGE_SIZE); if (currentPage < total) { currentPage++; render(); } }
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      currentPage = 1;
+      render();
+    });
+
+    initApp();
+    render();
+  </script>
+</body>
+</html>
